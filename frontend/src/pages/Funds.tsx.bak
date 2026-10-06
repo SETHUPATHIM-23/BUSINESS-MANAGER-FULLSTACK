@@ -1,0 +1,421 @@
+import React, { useState, useEffect } from 'react';
+import { api, fetchPaginated } from '../utils/api';
+import { useAuth } from '../context/AuthContext';
+import { toastEvents } from '../utils/toast';
+import { FundAccountModal } from '../components/funds/FundAccountModal';
+import type { FundAccountDto } from '../components/funds/FundAccountModal';
+import { FundTransferModal } from '../components/funds/FundTransferModal';
+import { CustomerPaymentFundModal } from '../components/funds/CustomerPaymentFundModal';
+import { SupplierSettlementFundModal } from '../components/funds/SupplierSettlementFundModal';
+import {
+  Wallet, Search, Plus, Send, Activity, ChevronLeft, ChevronRight, Edit, Trash2, ArrowDownRight, ArrowUpRight
+} from 'lucide-react';
+
+interface FundTransactionDto {
+  id: number;
+  fundAccountId: number;
+  fundAccountName: string;
+  fundAccountNumber: string | null;
+  targetFundAccountId: number | null;
+  targetFundAccountName: string | null;
+  type: 'RECEIPT' | 'PAYMENT' | 'TRANSFER';
+  amount: number;
+  transactionDate: string;
+  referenceDocumentType: string | null;
+  referenceDocumentId: number | null;
+  description: string | null;
+}
+
+export const Funds: React.FC = () => {
+  const { hasPermission } = useAuth();
+  const hasWriteAccess = hasPermission('FUND_WRITE');
+
+  const [activeTab, setActiveTab] = useState<'accounts' | 'transactions'>('accounts');
+
+  // Dashboard Stats
+  const [totalLiquidity, setTotalLiquidity] = useState<number>(0);
+
+  // Accounts State
+  const [accounts, setAccounts] = useState<FundAccountDto[]>([]);
+  const [accLoading, setAccLoading] = useState(true);
+  const [accPage, setAccPage] = useState(0);
+  const [accSize] = useState(10);
+  const [accTotalPages, setAccTotalPages] = useState(0);
+  const [accTotalElements, setAccTotalElements] = useState(0);
+  const [accSearch, setAccSearch] = useState('');
+  const [accTypeFilter, setAccTypeFilter] = useState('');
+  const [accActiveFilter, setAccActiveFilter] = useState('true');
+
+  const [isAccModalOpen, setIsAccModalOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<FundAccountDto | null>(null);
+
+  // Transactions State
+  const [transactions, setTransactions] = useState<FundTransactionDto[]>([]);
+  const [txLoading, setTxLoading] = useState(true);
+  const [txPage, setTxPage] = useState(0);
+  const [txSize] = useState(10);
+  const [txTotalPages, setTxTotalPages] = useState(0);
+  const [txTotalElements, setTxTotalElements] = useState(0);
+  const [txTypeFilter, setTxTypeFilter] = useState('');
+
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+
+  useEffect(() => {
+    fetchLiquidity();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'accounts') fetchAccounts();
+    else if (activeTab === 'transactions') fetchTransactions();
+  }, [activeTab, accPage, accSearch, accTypeFilter, accActiveFilter, txPage, txTypeFilter]);
+
+  const fetchLiquidity = async () => {
+    try {
+      const res = await api.get('/api/funds/accounts/liquidity');
+      setTotalLiquidity(res.data.totalLiquidity);
+    } catch (err) {
+      console.error('Failed to fetch liquidity', err);
+    }
+  };
+
+  const fetchAccounts = async () => {
+    setAccLoading(true);
+    try {
+      const params: any = {};
+      if (accSearch) params.search = accSearch;
+      if (accTypeFilter) params.type = accTypeFilter;
+      if (accActiveFilter !== '') params.active = accActiveFilter;
+
+      const data = await fetchPaginated<FundAccountDto>('/api/funds/accounts', { page: accPage, size: accSize, sort: 'id,desc', ...params });
+      setAccounts(data.content);
+      setAccTotalPages(data.totalPages);
+      setAccTotalElements(data.totalElements);
+    } catch (err) {
+      toastEvents.error('Failed to load fund accounts');
+    } finally {
+      setAccLoading(false);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    setTxLoading(true);
+    try {
+      const params: any = {};
+      if (txTypeFilter) params.type = txTypeFilter;
+
+      const data = await fetchPaginated<FundTransactionDto>('/api/funds/transactions', { page: txPage, size: txSize, sort: 'transactionDate,desc', ...params });
+      setTransactions(data.content);
+      setTxTotalPages(data.totalPages);
+      setTxTotalElements(data.totalElements);
+    } catch (err) {
+      toastEvents.error('Failed to load transactions');
+    } finally {
+      setTxLoading(false);
+    }
+  };
+
+  const handleDeactivateAccount = async (id: number) => {
+    if (!window.confirm('Are you sure you want to deactivate this account?')) return;
+    try {
+      await api.delete(`/api/funds/accounts/${id}`);
+      toastEvents.success('Account deactivated');
+      fetchAccounts();
+      fetchLiquidity();
+    } catch (err: any) {
+      toastEvents.error(err.response?.data?.message || 'Failed to deactivate account');
+    }
+  };
+
+  const handleReverseTx = async (id: number) => {
+    if (!window.confirm('Are you sure you want to reverse this transaction?')) return;
+    try {
+      await api.post(`/api/funds/transactions/${id}/reverse`);
+      toastEvents.success('Transaction reversed successfully');
+      fetchTransactions();
+      fetchLiquidity();
+      if (activeTab === 'accounts') fetchAccounts();
+    } catch (err: any) {
+      toastEvents.error(err.response?.data?.message || 'Failed to reverse transaction');
+    }
+  };
+
+  return (
+    <div className="page-container">
+      <div className="page-header">
+        <div className="page-title-group">
+          <div className="page-icon">
+            <Wallet size={22} />
+          </div>
+          <div>
+            <h1 className="page-title">Funds Management</h1>
+            <p className="page-description">Manage bank accounts and cash funds.</p>
+          </div>
+        </div>
+        <div className="header-actions">
+          <div className="glass-panel" style={{ padding: '0.75rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>Total Liquidity</span>
+            <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--success)', lineHeight: 1.2 }}>
+              ₹{totalLiquidity.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="tabs">
+        <button className={`tab ${activeTab === 'accounts' ? 'active' : ''}`} onClick={() => { setActiveTab('accounts'); setAccPage(0); }}>
+          <Wallet size={18} />
+          <span>Accounts</span>
+        </button>
+        <button className={`tab ${activeTab === 'transactions' ? 'active' : ''}`} onClick={() => { setActiveTab('transactions'); setTxPage(0); }}>
+          <Activity size={18} />
+          <span>Transactions</span>
+        </button>
+      </div>
+
+      {activeTab === 'accounts' && (
+        <>
+          <div className="filters-panel">
+            <div className="filters-group">
+              <div className="search-input-wrapper">
+                <Search size={16} className="search-icon" />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="Search name or account no..."
+                  value={accSearch}
+                  onChange={(e) => { setAccSearch(e.target.value); setAccPage(0); }}
+                />
+              </div>
+              <select className="form-select" value={accTypeFilter} onChange={(e) => { setAccTypeFilter(e.target.value); setAccPage(0); }} style={{ width: 'auto', minWidth: '110px' }}>
+                <option value="">All Types</option>
+                <option value="CASH">Cash</option>
+                <option value="BANK">Bank</option>
+              </select>
+              <select className="form-select" value={accActiveFilter} onChange={(e) => { setAccActiveFilter(e.target.value); setAccPage(0); }} style={{ width: 'auto', minWidth: '120px' }}>
+                <option value="">All Statuses</option>
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </div>
+            {hasWriteAccess && (
+              <div className="action-btn-group">
+                <button className="btn btn-success" style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }} onClick={() => setIsCustomerModalOpen(true)} title="Register Credited Fund from Customer">
+                  <ArrowDownRight size={16} /> Credit In
+                </button>
+                <button className="btn btn-danger" style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }} onClick={() => setIsSupplierModalOpen(true)} title="Settle to Supplier">
+                  <ArrowUpRight size={16} /> Settle Out
+                </button>
+                <button className="btn btn-primary" onClick={() => { setEditingAccount(null); setIsAccModalOpen(true); }}>
+                  <Plus size={16} /> Add Account
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr className="table-header-row">
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Account No.</th>
+                  <th>Balance</th>
+                  <th>Status</th>
+                  {hasWriteAccess && <th style={{ textAlign: 'right' }}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {accLoading ? (
+                  <tr><td colSpan={hasWriteAccess ? 7 : 6} style={{ textAlign: 'center', padding: '2rem' }}>Loading accounts...</td></tr>
+                ) : accounts.length === 0 ? (
+                  <tr><td colSpan={hasWriteAccess ? 7 : 6} style={{ textAlign: 'center', padding: '2rem' }}>No accounts found</td></tr>
+                ) : accounts.map(acc => (
+                  <tr key={acc.id} className="table-row">
+                    <td>#{acc.id}</td>
+                    <td style={{ fontWeight: 600 }}>{acc.name}</td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, backgroundColor: acc.type === 'BANK' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.1)', color: acc.type === 'BANK' ? '#3b82f6' : 'var(--text-secondary)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                        {acc.type}
+                      </span>
+                    </td>
+                    <td style={{ fontFamily: 'monospace' }}>{acc.accountNumber || '-'}</td>
+                    <td style={{ fontWeight: 600, fontFamily: 'monospace', color: acc.currentBalance < 0 ? 'var(--danger)' : 'var(--success)' }}>
+                      ₹{acc.currentBalance.toFixed(2)}
+                    </td>
+                    <td>
+                      <span className={`badge ${acc.active ? 'badge-success' : 'badge-danger'}`}>
+                        {acc.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    {hasWriteAccess && (
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <button className="btn btn-secondary btn-sm" title="Edit" onClick={() => { setEditingAccount(acc); setIsAccModalOpen(true); }}>
+                            <Edit size={14} />
+                          </button>
+                          {acc.active && (
+                            <button className="btn btn-danger btn-sm" title="Deactivate" onClick={() => handleDeactivateAccount(acc.id)}>
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {accTotalPages > 1 && (
+            <div className="pagination-panel">
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Showing {accPage * accSize + 1} to {Math.min((accPage + 1) * accSize, accTotalElements)} of {accTotalElements} records</span>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button className="btn btn-secondary" onClick={() => setAccPage(p => Math.max(0, p - 1))} disabled={accPage === 0} style={{ opacity: accPage === 0 ? 0.4 : 1, cursor: accPage === 0 ? 'not-allowed' : 'pointer' }}><ChevronLeft size={16} /></button>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>Page {accPage + 1} of {accTotalPages}</span>
+                <button className="btn btn-secondary" onClick={() => setAccPage(p => Math.min(accTotalPages - 1, p + 1))} disabled={accPage === accTotalPages - 1} style={{ opacity: accPage === accTotalPages - 1 ? 0.4 : 1, cursor: accPage === accTotalPages - 1 ? 'not-allowed' : 'pointer' }}><ChevronRight size={16} /></button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'transactions' && (
+        <>
+          <div className="filters-panel">
+            <div className="filters-group">
+              <select className="form-select" value={txTypeFilter} onChange={(e) => { setTxTypeFilter(e.target.value); setTxPage(0); }} style={{ width: 'auto', minWidth: '150px' }}>
+                <option value="">All Transactions</option>
+                <option value="RECEIPT">Receipts</option>
+                <option value="PAYMENT">Payments</option>
+                <option value="TRANSFER">Transfers</option>
+              </select>
+            </div>
+            {hasWriteAccess && (
+              <div className="action-btn-group">
+                <button className="btn btn-success" style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }} onClick={() => setIsCustomerModalOpen(true)}>
+                  <ArrowDownRight size={16} /> Credit In
+                </button>
+                <button className="btn btn-danger" style={{ backgroundColor: '#ef4444', borderColor: '#ef4444', color: '#fff' }} onClick={() => setIsSupplierModalOpen(true)}>
+                  <ArrowUpRight size={16} /> Settle Out
+                </button>
+                <button className="btn btn-primary" onClick={() => setIsTransferModalOpen(true)}>
+                  <Send size={16} /> Transfer
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="table-wrapper">
+            <table className="data-table">
+              <thead>
+                <tr className="table-header-row">
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Primary Account</th>
+                  <th>Target/Ref</th>
+                  <th>Amount</th>
+                  <th>Description</th>
+                  {hasWriteAccess && <th className="text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {txLoading ? (
+                  <tr><td colSpan={hasWriteAccess ? 7 : 6} className="text-center py-4">Loading...</td></tr>
+                ) : transactions.length === 0 ? (
+                  <tr><td colSpan={hasWriteAccess ? 7 : 6} className="text-center py-4">No transactions found</td></tr>
+                ) : transactions.map(tx => (
+                  <tr key={tx.id} className="table-row">
+                    <td>{tx.transactionDate}</td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700, backgroundColor: tx.type === 'RECEIPT' ? 'rgba(16, 185, 129, 0.15)' : tx.type === 'PAYMENT' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)', color: tx.type === 'RECEIPT' ? 'var(--success)' : tx.type === 'PAYMENT' ? 'var(--danger)' : 'var(--warning)', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                        {tx.type}
+                      </span>
+                    </td>
+                    <td>{tx.fundAccountName}</td>
+                    <td>
+                      {tx.type === 'TRANSFER' ? tx.targetFundAccountName : `${tx.referenceDocumentType || 'Manual'} ${tx.referenceDocumentId ? '#' + tx.referenceDocumentId : ''}`}
+                    </td>
+                    <td className="font-medium">
+                      ₹{tx.amount.toFixed(2)}
+                    </td>
+                    <td className="text-sm truncate max-w-xs" title={tx.description || ''}>{tx.description || '-'}</td>
+                    {hasWriteAccess && (
+                      <td className="text-right">
+                        <div className="action-buttons justify-end">
+                          {tx.referenceDocumentType !== 'REVERSAL' && (
+                            <button className="icon-button" title="Reverse Transaction" onClick={() => handleReverseTx(tx.id)}>
+                              <Trash2 size={16} className="text-red-600" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {txTotalPages > 1 && (
+            <div className="pagination-panel">
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Showing {txPage * txSize + 1} to {Math.min((txPage + 1) * txSize, txTotalElements)} of {txTotalElements} records</span>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button className="btn btn-secondary" onClick={() => setTxPage(p => Math.max(0, p - 1))} disabled={txPage === 0} style={{ opacity: txPage === 0 ? 0.4 : 1, cursor: txPage === 0 ? 'not-allowed' : 'pointer' }}><ChevronLeft size={16} /></button>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-primary)' }}>Page {txPage + 1} of {txTotalPages}</span>
+                <button className="btn btn-secondary" onClick={() => setTxPage(p => Math.min(txTotalPages - 1, p + 1))} disabled={txPage === txTotalPages - 1} style={{ opacity: txPage === txTotalPages - 1 ? 0.4 : 1, cursor: txPage === txTotalPages - 1 ? 'not-allowed' : 'pointer' }}><ChevronRight size={16} /></button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Modals */}
+      <FundAccountModal
+        isOpen={isAccModalOpen}
+        onClose={() => setIsAccModalOpen(false)}
+        account={editingAccount}
+        onSaved={() => {
+          fetchAccounts();
+          fetchLiquidity();
+        }}
+      />
+      
+      <FundTransferModal
+        isOpen={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        accounts={accounts}
+        onSaved={() => {
+          fetchTransactions();
+          fetchAccounts();
+          fetchLiquidity();
+        }}
+      />
+
+      <CustomerPaymentFundModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        accounts={accounts}
+        onSaved={() => {
+          fetchTransactions();
+          fetchAccounts();
+          fetchLiquidity();
+        }}
+      />
+
+      <SupplierSettlementFundModal
+        isOpen={isSupplierModalOpen}
+        onClose={() => setIsSupplierModalOpen(false)}
+        accounts={accounts}
+        onSaved={() => {
+          fetchTransactions();
+          fetchAccounts();
+          fetchLiquidity();
+        }}
+      />
+    </div>
+  );
+};

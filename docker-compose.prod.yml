@@ -1,0 +1,101 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: businessmanager-mysql-prod
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-password}
+      MYSQL_DATABASE: ${DB_NAME_PROD:-businessmanager_prod}
+      MYSQL_USER: ${DB_USERNAME:-businessmanager}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-password}
+      TZ: Asia/Kolkata
+    volumes:
+      - mysql-prod-data:/var/lib/mysql
+    networks:
+      businessmanager-network:
+        aliases:
+          - mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: businessmanager-backend-prod
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME_PROD:-businessmanager_prod}
+      DB_USERNAME: ${DB_USERNAME:-businessmanager}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-3600000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
+      APP_CRYPTO_SECRET: ${APP_CRYPTO_SECRET}
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}
+      BACKUP_LOCATION: ${BACKUP_LOCATION:-/opt/businessmanager/backups}
+      BACKUP_CRON: ${BACKUP_CRON:-0 0 2 * * ?}
+      BACKUP_RETENTION_ENABLED: ${BACKUP_RETENTION_ENABLED:-true}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_RETENTION_CRON: ${BACKUP_RETENTION_CRON:-0 0 3 * * ?}
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
+      MYSQLDUMP_PATH: ${MYSQLDUMP_PATH:-mysqldump}
+      MYSQL_PATH: ${MYSQL_PATH:-mysql}
+    volumes:
+      - ./secrets:/opt/businessmanager/secrets:ro
+      - backend-backups:/opt/businessmanager/backups
+    networks:
+      businessmanager-network:
+        aliases:
+          - backend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: businessmanager-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${SERVER_PORT:-80}:80"
+    networks:
+      businessmanager-network:
+        aliases:
+          - frontend
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  businessmanager-network:
+    driver: bridge
+    name: businessmanager-network
+
+volumes:
+  mysql-prod-data:
+    name: businessmanager_mysql_prod_data
+  backend-backups:
+    name: businessmanager_backend_backups

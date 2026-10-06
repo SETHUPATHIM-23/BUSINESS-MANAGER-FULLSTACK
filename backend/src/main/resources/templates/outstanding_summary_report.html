@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Outstanding Summary Report</title>
+    <style>
+        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 11px; color: #1e293b; margin: 0; padding: 20px; }
+        .header-table { width: 100%; border-bottom: 2px solid #0284c7; padding-bottom: 15px; margin-bottom: 20px; }
+        .company-name { font-size: 20px; font-weight: bold; color: #0369a1; }
+        .company-details { font-size: 10px; color: #64748b; margin-top: 4px; line-height: 1.4; }
+        .report-title { font-size: 16px; font-weight: bold; color: #0284c7; text-align: right; }
+        .report-subtitle { font-size: 10px; color: #64748b; text-align: right; margin-top: 4px; }
+
+        .kpi-table { width: 100%; margin-bottom: 20px; border-collapse: separate; border-spacing: 10px; }
+        .kpi-card { background: #f0f9ff; border: 1px solid #bae6fd; padding: 12px; border-radius: 6px; text-align: center; }
+        .kpi-title { font-size: 10px; text-transform: uppercase; color: #0369a1; font-weight: bold; letter-spacing: 0.5px; }
+        .kpi-val { font-size: 16px; font-weight: bold; font-family: monospace; color: #0c4a6e; margin-top: 4px; }
+
+        .data-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+        .data-table th { background-color: #0f172a; color: #ffffff; padding: 8px 10px; text-align: left; font-size: 10px; text-transform: uppercase; font-weight: bold; }
+        .data-table td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+        .data-table tr:nth-child(even) { background-color: #f8fafc; }
+        .text-right { text-align: right !important; }
+        .text-center { text-align: center !important; }
+
+        .summary-box { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+        .summary-box td { padding: 8px 12px; font-size: 11px; border: 1px solid #cbd5e1; }
+        .summary-label { background-color: #f1f5f9; font-weight: bold; color: #334155; width: 60%; }
+        .summary-value { font-weight: bold; font-family: monospace; font-size: 12px; text-align: right; }
+
+        .signatures-table { width: 100%; margin-top: 30px; }
+        .signature-cell { width: 45%; text-align: center; vertical-align: bottom; }
+        .signature-line { border-top: 1px dashed #64748b; margin-top: 40px; padding-top: 6px; font-weight: bold; font-size: 11px; color: #334155; }
+        .signature-subtext { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+
+        .footer { position: fixed; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td style="width: 60%;">
+                <div class="company-name" th:text="${report.ourCompany.name}">BusinessManager Enterprise</div>
+                <div class="company-details">
+                    <span th:text="${report.ourCompany.address}">100 Enterprise Way, Suite 400</span><br/>
+                    Phone: <span th:text="${report.ourCompany.phone}">+1 (800) 555-0199</span> | Email: <span th:text="${report.ourCompany.email}">info@businessmanager.com</span><br/>
+                    Tax ID / GSTIN: <span th:text="${report.ourCompany.taxId}">GSTIN-29AAAAA0000A1Z5</span>
+                </div>
+            </td>
+            <td style="width: 40%; vertical-align: top;">
+                <div class="report-title" th:text="${report.reportType == 'CUSTOMER_OUTSTANDING' ? 'OVERALL CUSTOMER OUTSTANDING SUMMARY' : 'OVERALL SUPPLIER OUTSTANDING SUMMARY'}">OUTSTANDING SUMMARY</div>
+                <div class="report-subtitle">
+                    As of Date: <span th:text="${#temporals.format(report.asOfDate, 'dd-MMM-yyyy')}"></span><br/>
+                    Generated: <span th:text="${#temporals.format(report.generatedAt, 'dd-MMM-yyyy HH:mm')}"></span>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="kpi-table">
+        <tr>
+            <td class="kpi-card" style="width: 33%;">
+                <div class="kpi-title" th:text="${report.reportType == 'CUSTOMER_OUTSTANDING' ? 'Total Outstanding Receivable' : 'Total Outstanding Payable'}">Total Outstanding</div>
+                <div class="kpi-val" style="color: #dc2626;" th:text="'₹' + ${#numbers.formatDecimal(report.totalOutstandingAmount, 1, 'COMMA', 2, 'POINT')}">₹0.00</div>
+            </td>
+            <td class="kpi-card" style="width: 33%;">
+                <div class="kpi-title" th:text="${report.reportType == 'CUSTOMER_OUTSTANDING' ? 'Customers With Dues' : 'Suppliers To Pay'}">Partners With Due</div>
+                <div class="kpi-val" th:text="${report.partnersWithDueCount}">0</div>
+            </td>
+            <td class="kpi-card" style="width: 33%;">
+                <div class="kpi-title">Total Records</div>
+                <div class="kpi-val" th:text="${report.totalPartnersCount}">0</div>
+            </td>
+        </tr>
+    </table>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 12%;">Code</th>
+                <th style="width: 26%;">Partner Name</th>
+                <th style="width: 18%;">Phone / Contact</th>
+                <th style="width: 14%;" class="text-right" th:text="${report.reportType == 'CUSTOMER_OUTSTANDING' ? 'Total Invoiced' : 'Total Purchased'}">Total Invoiced</th>
+                <th style="width: 14%;" class="text-right" th:text="${report.reportType == 'CUSTOMER_OUTSTANDING' ? 'Total Received' : 'Total Paid'}">Total Received</th>
+                <th style="width: 16%;" class="text-right">Outstanding Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:if="${report.lines == null or #lists.isEmpty(report.lines)}">
+                <td colspan="6" class="text-center" style="padding: 20px; color: #94a3b8;">No records found.</td>
+            </tr>
+            <tr th:each="line : ${report.lines}">
+                <td th:text="${line.partnerCode}" style="font-weight: bold; font-family: monospace;">CODE</td>
+                <td th:text="${line.partnerName}">Partner Name</td>
+                <td th:text="${line.phone != null ? line.phone : '-'}">-</td>
+                <td class="text-right" th:text="'₹' + ${#numbers.formatDecimal(line.totalBilledOrPurchased, 1, 'COMMA', 2, 'POINT')}">₹0.00</td>
+                <td class="text-right" th:text="'₹' + ${#numbers.formatDecimal(line.totalPaid, 1, 'COMMA', 2, 'POINT')}">₹0.00</td>
+                <td class="text-right" style="font-weight: bold;" th:style="${line.outstandingBalance > 0 ? 'font-weight: bold; color: #dc2626;' : 'font-weight: bold; color: #16a34a;'}" th:text="'₹' + ${#numbers.formatDecimal(line.outstandingBalance, 1, 'COMMA', 2, 'POINT')}">₹0.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <table class="summary-box">
+        <tr>
+            <td class="summary-label" th:text="${report.reportType == 'CUSTOMER_OUTSTANDING' ? 'Grand Total Outstanding Customer Receivables' : 'Grand Total Outstanding Supplier Payables'}">Grand Total Outstanding</td>
+            <td class="summary-value" style="color: #dc2626;" th:text="'₹' + ${#numbers.formatDecimal(report.totalOutstandingAmount, 1, 'COMMA', 2, 'POINT')}">₹0.00</td>
+        </tr>
+    </table>
+
+    <table class="signatures-table">
+        <tr>
+            <td class="signature-cell">
+                <div class="signature-line">Receiver Signatory</div>
+                <div class="signature-subtext">Signature &amp; Stamp</div>
+            </td>
+            <td style="width: 10%;"></td>
+            <td class="signature-cell">
+                <div class="signature-line">Authorized Signatory</div>
+                <div class="signature-subtext" th:text="${report.ourCompany.name}">BusinessManager Enterprise</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        Computer Generated Report | Generated on: <span th:text="${#temporals.format(report.generatedAt, 'yyyy-MM-dd HH:mm:ss')}"></span> | Confidential
+    </div>
+</body>
+</html>

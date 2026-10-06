@@ -1,0 +1,20 @@
+CREATE TABLE customers (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    customer_code VARCHAR(50) NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    business_name VARCHAR(100),
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    address VARCHAR(255),
+    tax_id VARCHAR(50),
+    credit_limit DECIMAL(15, 2),
+    credit_hold BOOLEAN NOT NULL DEFAULT FALSE,
+    price_tier_id BIGINT,
+    opening_balance DECIMAL(15, 2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_by VARCHAR(50),
+    updated_by VARCHAR(50),
+    version BIGINT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

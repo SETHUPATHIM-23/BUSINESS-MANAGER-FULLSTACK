@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="${reportTitle != null ? reportTitle : 'Report'}">Enterprise Report</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 12mm 12mm 20mm 12mm;
+        }
+        body { 
+            font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif; 
+            font-size: 10px; 
+            color: #0f172a; 
+            margin: 0; 
+            padding: 0;
+            line-height: 1.4;
+        }
+        .header-table { 
+            width: 100%; 
+            border-bottom: 2px solid #1e40af; 
+            padding-bottom: 12px; 
+            margin-bottom: 16px; 
+        }
+        .company-name { 
+            font-size: 19px; 
+            font-weight: 800; 
+            color: #1e3a8a; 
+            letter-spacing: -0.3px;
+        }
+        .company-details { 
+            font-size: 9.5px; 
+            color: #475569; 
+            margin-top: 4px; 
+            line-height: 1.4; 
+        }
+        .report-title { 
+            font-size: 16px; 
+            font-weight: 800; 
+            color: #1e40af; 
+            text-align: right; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .report-subtitle { 
+            font-size: 9.5px; 
+            color: #64748b; 
+            text-align: right; 
+            margin-top: 4px; 
+        }
+
+        .kpi-table { 
+            width: 100%; 
+            margin-bottom: 16px; 
+            border-collapse: separate; 
+            border-spacing: 8px; 
+        }
+        .kpi-card { 
+            background: #f8fafc; 
+            border: 1px solid #cbd5e1; 
+            padding: 10px 12px; 
+            border-radius: 4px; 
+            text-align: center; 
+        }
+        .kpi-label { 
+            font-size: 9px; 
+            text-transform: uppercase; 
+            color: #475569; 
+            font-weight: 700; 
+            letter-spacing: 0.5px; 
+        }
+        .kpi-value { 
+            font-size: 15px; 
+            font-weight: 800; 
+            font-family: 'Courier New', Courier, monospace; 
+            color: #0f172a; 
+            margin-top: 4px; 
+        }
+
+        .data-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+            border: 1px solid #cbd5e1;
+        }
+        .data-table th { 
+            background-color: #1e293b; 
+            color: #ffffff; 
+            padding: 8px 10px; 
+            text-align: left; 
+            font-size: 9px; 
+            text-transform: uppercase; 
+            font-weight: 700; 
+            letter-spacing: 0.5px;
+            border-right: 1px solid #334155;
+        }
+        .data-table th:last-child {
+            border-right: none;
+        }
+        .data-table td { 
+            padding: 7px 10px; 
+            border-bottom: 1px solid #e2e8f0; 
+            border-right: 1px solid #e2e8f0;
+            font-size: 9.5px; 
+            color: #0f172a;
+        }
+        .data-table td:last-child {
+            border-right: none;
+        }
+        .data-table tr:nth-child(even) { 
+            background-color: #f8fafc; 
+        }
+        .data-table tr {
+            page-break-inside: avoid;
+        }
+
+        .summary-box { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 15px; 
+            margin-bottom: 20px; 
+            page-break-inside: avoid; 
+        }
+        .summary-box td { 
+            padding: 8px 12px; 
+            font-size: 10px; 
+            border: 1px solid #cbd5e1; 
+        }
+        .summary-label { 
+            background-color: #f1f5f9; 
+            font-weight: 700; 
+            color: #334155; 
+            width: 60%; 
+            text-transform: uppercase;
+        }
+        .summary-value { 
+            font-weight: 800; 
+            font-family: 'Courier New', Courier, monospace; 
+            font-size: 11px; 
+            text-align: right; 
+            color: #0f172a;
+        }
+
+        .signatures-table { 
+            width: 100%; 
+            margin-top: 30px; 
+            page-break-inside: avoid; 
+        }
+        .signature-cell { 
+            width: 45%; 
+            text-align: center; 
+            vertical-align: bottom; 
+        }
+        .signature-line { 
+            border-top: 1px dashed #64748b; 
+            margin-top: 35px; 
+            padding-top: 6px; 
+            font-weight: 700; 
+            font-size: 10px; 
+            color: #334155; 
+            text-transform: uppercase;
+        }
+        .signature-subtext { 
+            font-size: 8.5px; 
+            color: #94a3b8; 
+            margin-top: 2px; 
+        }
+
+        .footer { 
+            position: fixed; 
+            bottom: -12mm; 
+            left: 0; 
+            right: 0; 
+            text-align: center; 
+            font-size: 8.5px; 
+            color: #94a3b8; 
+            border-top: 1px solid #e2e8f0; 
+            padding-top: 4px; 
+        }
+        .text-right { text-align: right !important; }
+        .text-center { text-align: center !important; }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td style="width: 60%; vertical-align: top;">
+                <div class="company-name" th:text="${companyName != null and not #strings.isEmpty(companyName) ? companyName : 'BusinessManager Enterprise'}">BusinessManager Enterprise</div>
+                <div class="company-details">
+                    <span th:text="${companyAddress != null ? companyAddress : ''}">Enterprise Address</span><br/>
+                    Phone: <span th:text="${companyPhone != null ? companyPhone : '-'}">-</span> | Email: info@businessmanager.com<br/>
+                    GSTIN / Tax ID: <span th:text="${companyGstin != null ? companyGstin : '-'}">-</span>
+                </div>
+            </td>
+            <td style="width: 40%; text-align: right; vertical-align: top;">
+                <div class="report-title" th:text="${reportTitle}">REPORT</div>
+                <div class="report-subtitle" th:if="${reportSubtitle != null and not #strings.isEmpty(reportSubtitle)}" th:text="${reportSubtitle}">Subtitle</div>
+                <div class="report-subtitle" style="margin-top: 2px;">Generated: <span th:text="${#dates.format(#dates.createNow(), 'dd-MMM-yyyy HH:mm')}"></span></div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Top Summary KPI Grid -->
+    <table class="kpi-table" th:if="${summaries != null and not #lists.isEmpty(summaries)}">
+        <tr>
+            <td th:each="sum : ${summaries}" class="kpi-card">
+                <div class="kpi-label" th:text="${sum[0]}">KEY</div>
+                <div class="kpi-value" th:text="${sum[1]}">VALUE</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Data Table -->
+    <div th:if="${rows != null and not #lists.isEmpty(rows)}">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th th:each="col : ${headers}" th:text="${col}">Column</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr th:each="row : ${rows}">
+                    <td th:each="cell : ${row}" th:text="${cell}">Value</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Signatures Block -->
+    <table class="signatures-table">
+        <tr>
+            <td class="signature-cell">
+                <div class="signature-line">Receiver Signatory</div>
+                <div class="signature-subtext">Signature &amp; Stamp</div>
+            </td>
+            <td style="width: 10%;"></td>
+            <td class="signature-cell">
+                <div class="signature-line">Authorized Signatory</div>
+                <div class="signature-subtext" th:text="${companyName != null and not #strings.isEmpty(companyName) ? companyName : 'BusinessManager Enterprise'}">BusinessManager Enterprise</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="footer">
+        Computer Generated Enterprise Report | Generated on: <span th:text="${#dates.format(#dates.createNow(), 'yyyy-MM-dd HH:mm:ss')}"></span> | Confidential
+    </div>
+</body>
+</html>

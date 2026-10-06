@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: businessmanager-mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - '3306:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: businessmanager_dev
+      TZ: Asia/Kolkata
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - businessmanager-dev-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+networks:
+  businessmanager-dev-network:
+    driver: bridge
+    name: businessmanager-dev-network
+
+volumes:
+  mysql-data:
+    name: businessmanager_mysql_dev_data

@@ -1,0 +1,21 @@
+{
+  "name": "businessmanager-enterprise",
+  "version": "1.0.0",
+  "description": "Monorepo for BusinessManager Enterprise operational management platform",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && mvn spring-boot:run \"-Dspring-boot.run.profiles=dev\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:backend": "cd backend && mvn clean package -DskipTests",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "test:backend": "cd backend && mvn test",
+    "test:frontend": "cd frontend && npm run test",
+    "test": "npm run test:backend && npm run test:frontend"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
